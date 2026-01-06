@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>Geometry Dash HTML</title>
+<title>GeometryDash Sex</title>
 
 <style>
 html,body{
   margin:0;
   padding:0;
-  overflow:hidden;
   background:#000;
+  overflow:hidden;
   touch-action:none;
+  font-family:Arial,Helvetica,sans-serif;
 }
 canvas{display:block}
 #ui{
@@ -31,13 +32,38 @@ canvas{display:block}
   color:#aaa;
   font-size:12px;
 }
+#menu{
+  position:fixed;
+  inset:0;
+  background:#000;
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.level{
+  border:2px solid #0ff;
+  padding:12px 40px;
+  margin:10px;
+  cursor:pointer;
+  text-shadow:0 0 8px #0ff;
+}
+.level:hover{background:#022}
 </style>
 </head>
 
 <body>
+
 <canvas id="c"></canvas>
 <div id="ui">0%</div>
-<div id="hint">TAP / CLICK TO RESTART</div>
+<div id="hint">TAP / CLICK TO JUMP</div>
+
+<div id="menu">
+  <h2>SELECT LEVEL</h2>
+  <div class="level" onclick="startLevel(0)">Stereo Madness</div>
+  <div class="level" onclick="startLevel(1)">Back on Track</div>
+</div>
 
 <script>
 /* ================= BASIC ================= */
@@ -56,71 +82,94 @@ const SPEED = 6;
 const GRAVITY = 0.9;
 const JUMP = -15;
 
-/* ================= GROUND ================= */
-let GROUND_Y = canvas.height - TILE*2;
-
 /* ================= ASSETS ================= */
 const img = {};
 ["cube","spike","block","orb_yellow","pad_yellow","bg"].forEach(n=>{
   img[n]=new Image();
-  img[n].src = n+".png";
+  img[n].src=n+".png";
 });
+const sJump=new Audio("jump.wav");
+const sDeath=new Audio("death.wav");
+const music=new Audio();
 
-const music = new Audio("music.mp3");
-music.loop = false;
-const sJump = new Audio("jump.wav");
-const sDeath = new Audio("death.wav");
-
-/* ================= PLAYER ================= */
-let player,offset,dead,progress;
-
-function reset(){
-  GROUND_Y = canvas.height - TILE*2;
-  player = {
-    x: 200,
-    y: GROUND_Y - TILE,
-    vy: 0,
-    size: TILE,
-    rot: 0,
-    onGround: false
-  };
-  offset = 0;
-  dead = false;
-  progress = 0;
-  music.currentTime = 0;
-  music.play();
+/* ================= LEVEL DATA ================= */
+const LEVELS=[
+{
+  name:"Stereo Madness",
+  music:"music1.mp3",
+  length:12000,
+  map:[
+    {x:600,t:"spike"},
+    {x:900,t:"spike"},
+    {x:1200,t:"block"},
+    {x:1600,t:"pad"},
+    {x:2100,t:"spike"},
+    {x:2600,t:"orb"},
+    {x:3200,t:"spike"},
+    {x:3800,t:"block"},
+    {x:4500,t:"spike"},
+    {x:5200,t:"pad"},
+    {x:6000,t:"orb"},
+    {x:7000,t:"spike"},
+  ]
+},
+{
+  name:"Back on Track",
+  music:"music2.mp3",
+  length:14000,
+  map:[
+    {x:700,t:"block"},
+    {x:1000,t:"spike"},
+    {x:1400,t:"spike"},
+    {x:1800,t:"pad"},
+    {x:2300,t:"orb"},
+    {x:3000,t:"spike"},
+    {x:3600,t:"block"},
+    {x:4200,t:"spike"},
+    {x:5200,t:"pad"},
+    {x:6000,t:"orb"},
+    {x:7200,t:"spike"},
+  ]
 }
-reset();
-
-/* ================= MAP (FIXED) ================= */
-const map = [
-  {x:600, t:"spike"},
-  {x:900, t:"spike"},
-  {x:1200, t:"block"},
-  {x:1500, t:"spike"},
-  {x:1800, t:"pad"},
-  {x:2100, t:"spike"},
-  {x:2500, t:"orb"},
-  {x:3000, t:"spike"},
-  {x:3500, t:"block"},
-  {x:4000, t:"spike"},
-  {x:4600, t:"pad"},
-  {x:5200, t:"spike"},
-  {x:6000, t:"orb"},
-  {x:7000, t:"spike"},
-  {x:8200, t:"block"},
-  {x:9500, t:"spike"},
-  {x:11000, t:"spike"}
 ];
-const MAP_END = 12000;
+
+let GROUND_Y,player,offset,dead,progress;
+let map=[],MAP_END=0;
+
+/* ================= START LEVEL ================= */
+function startLevel(i){
+  document.getElementById("menu").style.display="none";
+  const L=LEVELS[i];
+  map=L.map;
+  MAP_END=L.length;
+  music.src=L.music;
+  music.currentTime=0;
+  music.play();
+  reset();
+}
+
+/* ================= RESET ================= */
+function reset(){
+  GROUND_Y=canvas.height-TILE*2;
+  player={
+    x:200,
+    y:GROUND_Y-TILE,
+    vy:0,
+    rot:0,
+    onGround:false
+  };
+  offset=0;
+  dead=false;
+  progress=0;
+}
 
 /* ================= INPUT ================= */
 function jump(){
-  if(dead){ reset(); return; }
+  if(dead){ reset(); music.play(); return; }
   if(player.onGround){
-    player.vy = JUMP;
-    player.onGround = false;
-    sJump.currentTime = 0;
+    player.vy=JUMP;
+    player.onGround=false;
+    sJump.currentTime=0;
     sJump.play();
   }
 }
@@ -132,60 +181,51 @@ function loop(){
   requestAnimationFrame(loop);
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  /* BG */
   ctx.drawImage(img.bg,0,0,canvas.width,canvas.height);
 
   if(dead) return;
 
-  offset += SPEED;
-  progress = Math.min(100,Math.floor(offset/MAP_END*100));
-  document.getElementById("ui").innerText = progress + "%";
+  offset+=SPEED;
+  progress=Math.min(100,Math.floor(offset/MAP_END*100));
+  document.getElementById("ui").innerText=progress+"%";
 
-  /* PHYSICS */
-  player.vy += GRAVITY;
-  player.y += player.vy;
-
-  if(player.y + TILE >= GROUND_Y){
-    player.y = GROUND_Y - TILE;
-    player.vy = 0;
-    player.onGround = true;
+  player.vy+=GRAVITY;
+  player.y+=player.vy;
+  if(player.y+TILE>=GROUND_Y){
+    player.y=GROUND_Y-TILE;
+    player.vy=0;
+    player.onGround=true;
   }
+  player.rot+=0.12;
 
-  player.rot += 0.12;
-
-  /* DRAW MAP */
   for(const o of map){
-    const x = o.x - offset + player.x;
-    if(x < -100 || x > canvas.width+100) continue;
+    const x=o.x-offset+player.x;
+    if(x<-100||x>canvas.width+100) continue;
 
     if(o.t==="block"){
-      ctx.drawImage(img.block, x, GROUND_Y-TILE, TILE, TILE);
+      ctx.drawImage(img.block,x,GROUND_Y-TILE,TILE,TILE);
       if(hit(x,GROUND_Y-TILE,TILE,TILE)) die();
     }
-
     if(o.t==="spike"){
-      ctx.drawImage(img.spike, x, GROUND_Y-TILE, TILE, TILE);
+      ctx.drawImage(img.spike,x,GROUND_Y-TILE,TILE,TILE);
       if(hit(x,GROUND_Y-TILE,TILE,TILE)) die();
     }
-
     if(o.t==="pad"){
-      ctx.drawImage(img.pad_yellow, x, GROUND_Y-TILE/2, TILE, TILE/2);
+      ctx.drawImage(img.pad_yellow,x,GROUND_Y-TILE/2,TILE,TILE/2);
       if(hit(x,GROUND_Y-TILE/2,TILE,TILE/2)){
-        player.vy = JUMP*1.3;
+        player.vy=JUMP*1.3;
       }
     }
-
     if(o.t==="orb"){
-      ctx.drawImage(img.orb_yellow, x+8, GROUND_Y-TILE*2, 32, 32);
-      if(hit(x+8,GROUND_Y-TILE*2,32,32) && !player.onGround){
-        player.vy = JUMP*1.2;
+      ctx.drawImage(img.orb_yellow,x+8,GROUND_Y-TILE*2,32,32);
+      if(hit(x+8,GROUND_Y-TILE*2,32,32)&&!player.onGround){
+        player.vy=JUMP*1.2;
       }
     }
   }
 
-  /* PLAYER + GLOW */
   ctx.save();
-  ctx.translate(player.x+TILE/2, player.y+TILE/2);
+  ctx.translate(player.x+TILE/2,player.y+TILE/2);
   ctx.rotate(player.rot);
   ctx.shadowColor="#0ff";
   ctx.shadowBlur=20;
@@ -196,14 +236,11 @@ loop();
 
 /* ================= COLLISION ================= */
 function hit(x,y,w,h){
-  return player.x < x+w &&
-         player.x+TILE > x &&
-         player.y < y+h &&
-         player.y+TILE > y;
+  return player.x<x+w&&player.x+TILE>x&&player.y<y+h&&player.y+TILE>y;
 }
 function die(){
   if(dead) return;
-  dead = true;
+  dead=true;
   music.pause();
   sDeath.play();
 }
