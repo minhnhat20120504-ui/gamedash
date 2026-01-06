@@ -67,7 +67,6 @@ canvas{display:block}
 <div id="menu">
   <h2>SELECT LEVEL</h2>
   <div class="level" onclick="startLevel(0)">Level cho chó chơi</div>
-  <div class="level" onclick="startLevel(1)">Back on Track</div>
   <div class="level devil" onclick="startLevel(2)">😈 DEVIL MODE</div>
 </div>
 
@@ -137,14 +136,14 @@ const LEVELS=[
   length:18000,
   map:[
     {x:500,t:"spike"},
-    {x:650,t:"spike"},
     {x:800,t:"spike"},
-    {x:1000,t:"pad"},
     {x:1200,t:"spike"},
+    {x:1400,t:"pad"},
+    {x:1800,t:"spike"},
     {x:1350,t:"spike"},
-    {x:1500,t:"orb"},
-    {x:1700,t:"spike"},
-    {x:1850,t:"spike"},
+    {x:1800,t:"orb"},
+    {x:1900,t:"spike"},
+    {x:2050,t:"spike"},
     {x:2000,t:"pad"},
     {x:2200,t:"orb"},
     {x:2400,t:"spike"},
