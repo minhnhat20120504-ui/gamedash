@@ -1,1 +1,228 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Geometry Dash Web</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+html,body{
+  margin:0;
+  background:#000;
+  overflow:hidden;
+  touch-action:manipulation;
+  user-select:none;
+}
+canvas{display:block;margin:auto}
+#ui{
+  position:fixed;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  color:#fff;
+  font:18px Arial;
+  text-shadow:0 0 10px cyan;
+}
+#msg{
+  position:fixed;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:28px;
+  color:#fff;
+  background:rgba(0,0,0,.6);
+  visibility:hidden;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">0%</div>
+<div id="msg">CLICK / TAP TO RESTART</div>
+<canvas id="game"></canvas>
+
+<audio id="music" src="music.mp3" loop></audio>
+<audio id="jump" src="jump.wav"></audio>
+<audio id="death" src="death.wav"></audio>
+
+<script>
+/* ================== SETUP ================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = 300;
+
+const GRAVITY = 0.9;
+const JUMP = -14;
+const SPEED = 6;
+const GROUND = 230;
+
+/* ================== LOAD IMAGES ================== */
+const img = {};
+["cube","spike","block","orb_yellow","pad_yellow","bg"].forEach(n=>{
+  img[n] = new Image();
+  img[n].src = n + ".png";
+});
+
+/* ================== MAP (EMBED) ================== */
+const MAP_LENGTH = 12000;
+const mapObjects = [
+  {type:"spike",x:600},
+  {type:"spike",x:950},
+  {type:"orb",x:1400},
+  {type:"pad",x:1800},
+  {type:"spike",x:2300},
+  {type:"spike",x:2700},
+  {type:"orb",x:3200},
+  {type:"pad",x:3600},
+  {type:"spike",x:4200},
+  {type:"spike",x:4800},
+  {type:"orb",x:5500},
+  {type:"pad",x:6000},
+  {type:"spike",x:7000},
+  {type:"spike",x:8000},
+  {type:"spike",x:9000},
+  {type:"spike",x:10500}
+];
+
+/* ================== GAME STATE ================== */
+let objects = [];
+let running = false;
+let dead = false;
+let progress = 0;
+
+const player = {
+  x:80,
+  y:GROUND,
+  size:28,
+  dy:0,
+  rot:0
+};
+
+/* ================== UTILS ================== */
+function collide(a,b){
+  return a.x < b.x + b.w &&
+         a.x + a.size > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.size > b.y;
+}
+
+function glow(draw,color,blur){
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur;
+  draw();
+  ctx.restore();
+}
+
+/* ================== GAME LOGIC ================== */
+function reset(){
+  objects = mapObjects.map(o=>({...o,y:GROUND}));
+  player.y = GROUND;
+  player.dy = 0;
+  player.rot = 0;
+  progress = 0;
+  dead = false;
+  document.getElementById("msg").style.visibility="hidden";
+}
+
+function jump(){
+  if(!running){
+    document.getElementById("music").play();
+    running = true;
+  }
+  if(player.y >= GROUND){
+    player.dy = JUMP;
+    const s = document.getElementById("jump");
+    s.currentTime = 0;
+    s.play();
+  }
+}
+
+function die(){
+  dead = true;
+  document.getElementById("music").pause();
+  document.getElementById("death").play();
+  document.getElementById("msg").innerText = "CLICK / TAP TO RESTART";
+  document.getElementById("msg").style.visibility="visible";
+}
+
+function win(){
+  dead = true;
+  document.getElementById("music").pause();
+  document.getElementById("msg").innerText = "LEVEL COMPLETE!";
+  document.getElementById("msg").style.visibility="visible";
+}
+
+/* ================== LOOP ================== */
+function loop(){
+  if(dead) return;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img.bg,0,0,canvas.width,canvas.height);
+
+  player.dy += GRAVITY;
+  player.y += player.dy;
+  player.rot += 0.1;
+  if(player.y > GROUND){
+    player.y = GROUND;
+    player.dy = 0;
+  }
+
+  objects.forEach(o=>{
+    o.x -= SPEED;
+
+    if(o.type==="spike"){
+      glow(()=>{
+        ctx.drawImage(img.spike,o.x,o.y-40,30,40);
+      },"#ff0055",18);
+
+      if(collide(player,{x:o.x,y:o.y-40,w:30,h:40})) die();
+    }
+
+    if(o.type==="orb"){
+      ctx.drawImage(img.orb_yellow,o.x,o.y-50,30,30);
+      if(collide(player,{x:o.x,y:o.y-50,w:30,h:30})) jump();
+    }
+
+    if(o.type==="pad"){
+      ctx.drawImage(img.pad_yellow,o.x,o.y-20,40,20);
+      if(collide(player,{x:o.x,y:o.y-20,w:40,h:20})) jump();
+    }
+  });
+
+  glow(()=>{
+    ctx.save();
+    ctx.translate(player.x+14,player.y+14);
+    ctx.rotate(player.rot);
+    ctx.drawImage(img.cube,-14,-14,28,28);
+    ctx.restore();
+  },"#00ffff",20);
+
+  progress = Math.min(
+    100,
+    Math.floor(((-objects[0].x + 400) / MAP_LENGTH) * 100)
+  );
+  document.getElementById("ui").innerText = progress + "%";
+
+  if(progress >= 100) win();
+
+  requestAnimationFrame(loop);
+}
+
+/* ================== INPUT ================== */
+addEventListener("keydown",e=>e.code==="Space"&&jump());
+addEventListener("click",()=>dead?(reset(),loop()):jump());
+addEventListener("touchstart",e=>{
+  e.preventDefault();
+  dead?(reset(),loop()):jump();
+});
+
+/* ================== START ================== */
+reset();
+loop();
+</script>
+
+</body>
+</html>
 
